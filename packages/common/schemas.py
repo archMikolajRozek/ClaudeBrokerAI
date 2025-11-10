@@ -12,30 +12,30 @@ from pydantic import BaseModel, Field
 # NEWS SCHEMAS
 # ============================================================================
 
-class RawNewsMessage(BaseModel):
-    """Wiadomość z agenta ingest_news"""
-    title: str
-    content: str
-    source: str
-    url: str
-    published_at: str
-    tickers: List[str] = Field(default_factory=list)
-    metadata: Optional[Dict[str, Any]] = None
+class NewsIngestedMessage(BaseModel):
+    """Wiadomość z agenta ingest_news - znormalizowany news"""
+    ticker: str = Field(..., description="Symbol akcji (np. AAPL)")
+    datetime: str = Field(..., description="Data i czas newsa (ISO format)")
+    headline: str = Field(..., description="Nagłówek wiadomości")
+    body: str = Field(..., description="Treść wiadomości")
+    sentiment: float = Field(..., ge=-1.0, le=1.0, description="Sentyment: -1 (negatywny) do 1 (pozytywny)")
+    impact: float = Field(..., ge=0.0, le=1.0, description="Przewidywany wpływ na cenę (0-1)")
+    relevance: float = Field(..., ge=0.0, le=1.0, description="Relevancja dla tickera (0-1)")
+    source: Optional[str] = Field(None, description="Źródło newsa")
+    url: Optional[str] = Field(None, description="URL do pełnego artykułu")
 
 
-class ScoredNewsMessage(BaseModel):
-    """Wiadomość z agenta score_news"""
-    title: str
-    content: str
-    source: str
-    url: str
-    published_at: str
-    tickers: List[str]
-    sentiment_score: float = Field(..., ge=-1.0, le=1.0, description="Sentyment: -1 (negatywny) do 1 (pozytywny)")
-    impact_score: float = Field(..., ge=0.0, le=1.0, description="Przewidywany wpływ na cenę")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Pewność predykcji")
-    scored_at: str
-    metadata: Optional[Dict[str, Any]] = None
+class NewsScoredMessage(BaseModel):
+    """Wiadomość z agenta score_news - news z decay factor"""
+    ticker: str = Field(..., description="Symbol akcji")
+    score: float = Field(..., description="Adjusted impact = sentiment * impact * decay_factor")
+    timestamp: str = Field(..., description="Timestamp obliczenia score (ISO format)")
+    decay_factor: float = Field(..., ge=0.0, le=1.0, description="exp(-Δt / tau)")
+    relevance: float = Field(..., ge=0.0, le=1.0, description="Relevancja dla tickera")
+    original_sentiment: Optional[float] = Field(None, description="Oryginalny sentiment przed decay")
+    original_impact: Optional[float] = Field(None, description="Oryginalny impact przed decay")
+    news_datetime: Optional[str] = Field(None, description="Oryginalny datetime newsa")
+    headline: Optional[str] = Field(None, description="Nagłówek dla referencji")
 
 
 # ============================================================================
@@ -162,8 +162,8 @@ class StreamMessage(BaseModel):
 
 class StreamNames:
     """Nazwy Redis Streams używane w systemie"""
-    NEWS_RAW = "news:raw"
-    NEWS_SCORED = "news:scored"
+    NEWS_INGESTED = "news_ingested"
+    NEWS_SCORED = "news_scored"
     MARKET_DATA = "market:data"
     SIGNALS_TRADING = "signals:trading"
     SIGNALS_APPROVED = "signals:approved"

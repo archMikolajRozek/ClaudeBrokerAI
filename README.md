@@ -50,15 +50,18 @@ System składa się z 7 autonomicznych agentów komunikujących się przez Redis
 
 ### Agenty
 
-| Agent | Rola | Input Stream | Output Stream |
-|-------|------|--------------|---------------|
-| **ingest_news** | Pobiera wiadomości finansowe | - | `news:raw` |
-| **score_news** | Ocenia sentyment wiadomości | `news:raw` | `news:scored` |
-| **market_data** | Pobiera dane rynkowe | - | `market:data` |
-| **strategy** | Generuje sygnały handlowe | `market:data`, `news:scored` | `signals:trading` |
-| **risk** | Zarządza ryzykiem | `signals:trading` | `signals:approved` |
-| **execution** | Wykonuje transakcje | `signals:approved` | `executions:completed` |
-| **shock_detector** | Wykrywa anomalie | `market:data` | `alerts:shocks` |
+| Agent | Status | Rola | Input Stream | Output Stream |
+|-------|--------|------|--------------|---------------|
+| **ingest_news** | ✅ **Ready** | Pobiera wiadomości finansowe z NewsAPI | - | `news_ingested` |
+| **score_news** | ✅ **Ready** | Oblicza score z decay factor | `news_ingested` | `news_scored` |
+| **market_data** | 🚧 Scaffold | Pobiera dane rynkowe | - | `market:data` |
+| **strategy** | 🚧 Scaffold | Generuje sygnały handlowe | `market:data`, `news_scored` | `signals:trading` |
+| **risk** | 🚧 Scaffold | Zarządza ryzykiem | `signals:trading` | `signals:approved` |
+| **execution** | 🚧 Scaffold | Wykonuje transakcje | `signals:approved` | `executions:completed` |
+| **shock_detector** | 🚧 Scaffold | Wykrywa anomalie | `market:data` | `alerts:shocks` |
+
+**✅ Ready** = Pełna implementacja, gotowe do użycia
+**🚧 Scaffold** = Podstawowa struktura, wymaga implementacji
 
 ## 📁 Struktura projektu
 
@@ -129,6 +132,27 @@ docker-compose exec redis redis-cli ping
 # Logi agentów
 docker-compose logs -f agent-strategy
 ```
+
+### 🎯 Quick Start - News Agents (Ready to use!)
+
+Agenty `ingest_news` i `score_news` są w pełni zaimplementowane i gotowe do użycia:
+
+```bash
+# 1. Zainstaluj dependencies
+pip install -r requirements.txt
+pip install -r packages/common/requirements.txt
+
+# 2. Uruchom Redis
+docker run -d -p 6379:6379 redis:7-alpine
+
+# 3. Skopiuj konfigurację
+cp .env.example .env
+
+# 4. Uruchom test
+python test_agents.py
+```
+
+📖 **Szczegóły**: Zobacz [QUICKSTART.md](QUICKSTART.md) dla pełnego przewodnika.
 
 ### Development lokalny (bez Docker)
 
