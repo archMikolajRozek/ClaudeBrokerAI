@@ -169,6 +169,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Agent: Momentum (NOWY - technical indicators)
+  agent-momentum:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-momentum
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=momentum
+      - MOMENTUM_WINDOW_SIZE=${MOMENTUM_WINDOW_SIZE:-50}
+      - MOMENTUM_RSI_PERIOD=${MOMENTUM_RSI_PERIOD:-14}
+      - MOMENTUM_MACD_FAST=${MOMENTUM_MACD_FAST:-12}
+      - MOMENTUM_MACD_SLOW=${MOMENTUM_MACD_SLOW:-26}
+      - MOMENTUM_MACD_SIGNAL=${MOMENTUM_MACD_SIGNAL:-9}
+    volumes:
+      - ./agents/momentum:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   # API
   api:
     build:

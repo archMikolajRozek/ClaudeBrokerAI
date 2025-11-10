@@ -1,0 +1,13 @@
+# Momentum Agent Dependencies
+
+# Redis client (async)
+redis==5.0.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Date parsing
+python-dateutil==2.8.2
+
+# Common packages (z packages/common)
+pydantic==2.5.3
