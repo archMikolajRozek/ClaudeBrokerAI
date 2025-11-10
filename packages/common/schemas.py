@@ -79,6 +79,31 @@ class MarketDataMessage(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+class MarketCandleMessage(BaseModel):
+    """1-minutowa świeca dla shock detection"""
+    ticker: str = Field(..., description="Symbol akcji")
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    timestamp: str = Field(..., description="Timestamp zamknięcia świecy")
+    returns: Optional[float] = Field(None, description="Log returns (close/prev_close)")
+
+
+class MarketShockEvent(BaseModel):
+    """Wykryte wydarzenie szokowe na rynku"""
+    ticker: str = Field(..., description="Symbol akcji")
+    shock_type: str = Field(..., description="PRICE_SPIKE, PRICE_DROP, VOLUME_SPIKE")
+    detected_at: str = Field(..., description="Timestamp wykrycia")
+    price: float = Field(..., description="Cena w momencie wykrycia")
+    z_score: float = Field(..., description="Z-score zwrotu (ile std od średniej)")
+    volume_percentile: Optional[float] = Field(None, description="Percentyl wolumenu")
+    returns: float = Field(..., description="Zwrot w % który wywołał shock")
+    severity: float = Field(..., ge=0.0, le=1.0, description="Severity 0-1")
+    metadata: Optional[Dict[str, Any]] = None
+
+
 # ============================================================================
 # STRATEGY AGENT SCHEMAS
 # ============================================================================
@@ -153,11 +178,11 @@ class ExecutedOrder(BaseModel):
 
 
 # ============================================================================
-# SHOCK DETECTION SCHEMAS
+# SHOCK DETECTION & CAUSE ATTRIBUTION SCHEMAS
 # ============================================================================
 
 class ShockAlert(BaseModel):
-    """Alert o anomalii rynkowej z agenta shock_detector"""
+    """Alert o anomalii rynkowej z agenta shock_detector (legacy)"""
     ticker: str
     shock_type: str = Field(..., description="PRICE_SHOCK, VOLUME_SHOCK, VOLATILITY_SPIKE, CORRELATION_BREAK")
     severity: float = Field(..., ge=0.0, le=1.0)
@@ -167,6 +192,22 @@ class ShockAlert(BaseModel):
     detected_at: str
     message: str
     recommended_action: Optional[str] = Field(None, description="HALT_TRADING, REDUCE_EXPOSURE, MONITOR")
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class CauseAttribution(BaseModel):
+    """Przypisana przyczyna dla shock event (z cause_finder)"""
+    event_id: str = Field(..., description="ID wydarzenia szokowego")
+    ticker: str
+    shock_type: str
+    shock_detected_at: str
+    cause_type: str = Field(..., description="NEWS, EARNINGS, MACRO, TECHNICAL, UNKNOWN")
+    cause_text: str = Field(..., description="Opis przyczyny")
+    cause_source: Optional[str] = Field(None, description="Źródło (np. news headline)")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Pewność przypisania")
+    impact_strength: float = Field(..., ge=0.0, le=1.0, description="Siła wpływu")
+    time_delta_minutes: float = Field(..., description="Ile minut między newsem a shockiem")
+    attributed_at: str = Field(..., description="Timestamp przypisania")
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -191,6 +232,8 @@ class StreamNames:
     NEWS_INGESTED = "news_ingested"
     NEWS_SCORED = "news_scored"
     MARKET_MOMENTUM = "market_momentum"
+    MARKET_CANDLES = "market_candles"
+    MARKET_SHOCKS = "market_shocks"
     TRADE_PROPOSALS = "trade_proposals"
     APPROVED_TRADES = "approved_trades"
     REJECTED_TRADES = "rejected_trades"
