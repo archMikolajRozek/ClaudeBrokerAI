@@ -1,0 +1,16 @@
+# Market Data Agent Dependencies
+
+# Redis client (async)
+redis==5.0.1
+
+# WebSocket client dla Polygon i Alpaca
+websockets==12.0
+
+# HTTP client (async) dla REST fallback
+aiohttp==3.9.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Common packages (z packages/common)
+pydantic==2.5.3
