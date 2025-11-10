@@ -1,0 +1,20 @@
+# Wymuszaj Unix line endings (LF) dla wszystkich plików shell
+*.sh text eol=lf
+
+# Wymuszaj Unix line endings dla Dockerfile
+Dockerfile* text eol=lf
+
+# Python files - standardowe line endings
+*.py text
+
+# Config files
+*.yml text
+*.yaml text
+*.json text
+*.toml text
+*.ini text
+*.env text
+
+# Documentation
+*.md text
+*.txt text
