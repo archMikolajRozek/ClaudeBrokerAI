@@ -43,6 +43,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - AGENT_NAME=ingest_news
+      - INGEST_INTERVAL=${INGEST_INTERVAL:-60}
+      - NEWS_API_KEY=${NEWS_API_KEY}
     volumes:
       - ./agents/ingest_news:/app/agent
       - ./packages/common:/app/packages/common
@@ -61,6 +63,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - AGENT_NAME=score_news
+      - NEWS_DECAY_TAU_HOURS=${NEWS_DECAY_TAU_HOURS:-24}
+      - CONSUMER_NAME=${CONSUMER_NAME:-score_news_consumer_1}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:

@@ -12,29 +12,42 @@ from pydantic import BaseModel, Field
 # NEWS SCHEMAS
 # ============================================================================
 
+class IngestedNewsMessage(BaseModel):
+    """Wiadomość z agenta ingest_news - znormalizowany news"""
+    ticker: str = Field(..., description="Symbol tickera (np. AAPL)")
+    datetime: str = Field(..., description="Data i czas publikacji (ISO format)")
+    headline: str = Field(..., description="Nagłówek wiadomości")
+    body: str = Field(..., description="Treść wiadomości")
+    sentiment: float = Field(..., ge=-1.0, le=1.0, description="Sentyment: -1 (negatywny) do 1 (pozytywny)")
+    impact: float = Field(..., ge=0.0, le=1.0, description="Przewidywany wpływ na cenę")
+    relevance: float = Field(..., ge=0.0, le=1.0, description="Relevancja dla tickera")
+    source: Optional[str] = Field(None, description="Źródło wiadomości")
+    url: Optional[str] = Field(None, description="URL do oryginalnej wiadomości")
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ScoredNewsMessage(BaseModel):
+    """Wiadomość z agenta score_news - news z obliczonym score"""
+    ticker: str = Field(..., description="Symbol tickera")
+    score: float = Field(..., description="Adjusted impact score (sentiment * impact * decay_factor)")
+    timestamp: str = Field(..., description="Timestamp obliczenia score (ISO format)")
+    decay_factor: float = Field(..., ge=0.0, le=1.0, description="Współczynnik czasowego rozpadu")
+    relevance: float = Field(..., ge=0.0, le=1.0, description="Relevancja dla tickera")
+    original_sentiment: float = Field(..., ge=-1.0, le=1.0, description="Oryginalny sentyment")
+    original_impact: float = Field(..., ge=0.0, le=1.0, description="Oryginalny impact")
+    news_datetime: str = Field(..., description="Oryginalna data newsa")
+    headline: Optional[str] = Field(None, description="Nagłówek dla kontekstu")
+    metadata: Optional[Dict[str, Any]] = None
+
+
 class RawNewsMessage(BaseModel):
-    """Wiadomość z agenta ingest_news"""
+    """Wiadomość z agenta ingest_news (legacy)"""
     title: str
     content: str
     source: str
     url: str
     published_at: str
     tickers: List[str] = Field(default_factory=list)
-    metadata: Optional[Dict[str, Any]] = None
-
-
-class ScoredNewsMessage(BaseModel):
-    """Wiadomość z agenta score_news"""
-    title: str
-    content: str
-    source: str
-    url: str
-    published_at: str
-    tickers: List[str]
-    sentiment_score: float = Field(..., ge=-1.0, le=1.0, description="Sentyment: -1 (negatywny) do 1 (pozytywny)")
-    impact_score: float = Field(..., ge=0.0, le=1.0, description="Przewidywany wpływ na cenę")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Pewność predykcji")
-    scored_at: str
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -163,7 +176,8 @@ class StreamMessage(BaseModel):
 class StreamNames:
     """Nazwy Redis Streams używane w systemie"""
     NEWS_RAW = "news:raw"
-    NEWS_SCORED = "news:scored"
+    NEWS_INGESTED = "news_ingested"  # Znormalizowane newsy z ingest_news
+    NEWS_SCORED = "news_scored"       # Newsy z obliczonym score z score_news
     MARKET_DATA = "market:data"
     SIGNALS_TRADING = "signals:trading"
     SIGNALS_APPROVED = "signals:approved"
