@@ -1,0 +1,207 @@
+version: '3.8'
+
+services:
+  # Redis - Message broker
+  redis:
+    image: redis:7-alpine
+    container_name: ai-portfolio-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # PostgreSQL - Database for historical data, positions, orders
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-portfolio-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portfolio_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Agent: Ingest News
+  agent-ingest-news:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-ingest-news
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=ingest_news
+    volumes:
+      - ./agents/ingest_news:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Agent: Score News
+  agent-score-news:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-score-news
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=score_news
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./agents/score_news:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Agent: Market Data
+  agent-market-data:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-market-data
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=market_data
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - POLYGON_API_KEY=${POLYGON_API_KEY}
+    volumes:
+      - ./agents/market_data:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Agent: Strategy
+  agent-strategy:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-strategy
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=strategy
+    volumes:
+      - ./agents/strategy:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Agent: Risk
+  agent-risk:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-risk
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=risk
+      - MAX_POSITION_SIZE=${MAX_POSITION_SIZE:-10000}
+      - MAX_PORTFOLIO_RISK=${MAX_PORTFOLIO_RISK:-0.02}
+    volumes:
+      - ./agents/risk:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Agent: Execution
+  agent-execution:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-execution
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=execution
+      - ALPACA_API_KEY=${ALPACA_API_KEY}
+      - ALPACA_API_SECRET=${ALPACA_API_SECRET}
+      - ALPACA_BASE_URL=${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+    volumes:
+      - ./agents/execution:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Agent: Shock Detector
+  agent-shock-detector:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-shock-detector
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=shock_detector
+    volumes:
+      - ./agents/shock_detector:/app/agent
+      - ./packages/common:/app/packages/common
+    command: python /app/agent/main.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # API
+  api:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.api
+    container_name: ai-portfolio-api
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-portfolio_db}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app
+      - ./packages/common:/app/packages/common
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # UI (placeholder - requires npm install)
+  # ui:
+  #   build:
+  #     context: ./apps/ui
+  #     dockerfile: ../../infra/Dockerfile.ui
+  #   container_name: ai-portfolio-ui
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - api
+  #   restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:

@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY packages/common/requirements.txt /app/packages/common/requirements.txt
+RUN pip install --no-cache-dir -r /app/packages/common/requirements.txt
+
+# Additional agent dependencies
+RUN pip install --no-cache-dir \
+    openai==1.10.0 \
+    anthropic==0.18.0 \
+    python-dotenv==1.0.0
+
+# Copy common package
+COPY packages/common /app/packages/common
+
+# Agent code will be mounted as volume
+# COPY agents/<agent_name> /app/agent
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "/app/agent/main.py"]
