@@ -2,22 +2,33 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Zainstaluj systemowe dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Kopiuj i zainstaluj COMMON requirements
 COPY packages/common/requirements.txt /app/packages/common/requirements.txt
 RUN pip install --no-cache-dir -r /app/packages/common/requirements.txt
 
-# Additional agent dependencies
+# Zainstaluj dodatkowe dependencies które mogą być potrzebne przez agentów
 RUN pip install --no-cache-dir \
     openai==1.10.0 \
     anthropic==0.18.0 \
-    python-dotenv==1.0.0
+    python-dotenv==1.0.0 \
+    websockets==12.0 \
+    aiohttp==3.9.1
 
-# Copy common package
+# Kopiuj common package
 COPY packages/common /app/packages/common
 
-# Agent code will be mounted as volume
-# COPY agents/<agent_name> /app/agent
-
+# Dodaj packages do PYTHONPATH żeby import common działał
+ENV PYTHONPATH=/app/packages:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 
+# Entrypoint script który zainstaluje agent-specific requirements
+COPY infra/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "/app/agent/main.py"]
