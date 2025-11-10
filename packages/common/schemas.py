@@ -42,6 +42,14 @@ class NewsScoredMessage(BaseModel):
 # MARKET DATA SCHEMAS
 # ============================================================================
 
+class MarketMomentumMessage(BaseModel):
+    """Wiadomość z momentum score (placeholder dla przyszłego agenta)"""
+    ticker: str = Field(..., description="Symbol akcji")
+    momentum_score: float = Field(..., description="Momentum score (może być ujemny)")
+    timestamp: str = Field(..., description="Timestamp obliczenia")
+    price: Optional[float] = Field(None, description="Aktualna cena")
+    metadata: Optional[Dict[str, Any]] = None
+
 class TechnicalIndicators(BaseModel):
     """Wskaźniki techniczne"""
     rsi: Optional[float] = Field(None, description="Relative Strength Index")
@@ -72,38 +80,53 @@ class MarketDataMessage(BaseModel):
 
 
 # ============================================================================
-# TRADING SIGNAL SCHEMAS
+# STRATEGY AGENT SCHEMAS
 # ============================================================================
 
-class TradingSignal(BaseModel):
-    """Sygnał handlowy z agenta strategy"""
-    ticker: str
-    signal: str = Field(..., description="BUY, SELL, HOLD")
-    confidence: float = Field(..., ge=0.0, le=1.0)
-    price: float = Field(..., description="Cena sygnału")
-    quantity: int = Field(..., description="Sugerowana ilość")
-    reason: str = Field(..., description="Powód sygnału")
-    timestamp: str
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+class TradeProposal(BaseModel):
+    """Propozycja trade z agenta strategy"""
+    ticker: str = Field(..., description="Symbol akcji")
+    side: str = Field(..., description="BUY lub SELL")
+    entry: float = Field(..., description="Cena wejścia")
+    stop: float = Field(..., description="Stop loss")
+    take_profit: float = Field(..., description="Take profit")
+    rationale: str = Field(..., description="Uzasadnienie sygnału")
+    alpha: float = Field(..., ge=0.0, le=1.0, description="Waga news score w formule")
+    combined_score: float = Field(..., description="S = α * score_news + (1-α) * score_mom")
+    news_score: Optional[float] = Field(None, description="Score z news")
+    momentum_score: Optional[float] = Field(None, description="Score z momentum")
+    timestamp: str = Field(..., description="Timestamp propozycji")
     metadata: Optional[Dict[str, Any]] = None
 
 
-class ApprovedSignal(BaseModel):
-    """Zatwierdzony sygnał z agenta risk"""
+# ============================================================================
+# RISK AGENT SCHEMAS
+# ============================================================================
+
+class ApprovedTrade(BaseModel):
+    """Zatwierdzony trade z agenta risk"""
     ticker: str
-    signal: str
-    confidence: float
-    price: float
-    quantity: int
-    adjusted_quantity: int = Field(..., description="Ilość dostosowana przez risk management")
-    reason: str
-    risk_approved: bool
-    risk_reason: str
-    risk_score: float = Field(..., ge=0.0, le=1.0)
-    assessed_at: str
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+    side: str
+    entry: float
+    stop: float
+    take_profit: float
+    quantity: int = Field(..., description="Ilość akcji do zakupu/sprzedaży")
+    risk_amount: float = Field(..., description="Kwota ryzyka w USD")
+    risk_pct: float = Field(..., description="% NAV ryzykowane")
+    rationale: str
+    timestamp: str
+    approved_at: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class RejectedTrade(BaseModel):
+    """Odrzucony trade z agenta risk"""
+    ticker: str
+    side: str
+    entry: float
+    rejection_reason: str = Field(..., description="Powód odrzucenia")
+    timestamp: str
+    rejected_at: str
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -111,17 +134,20 @@ class ApprovedSignal(BaseModel):
 # EXECUTION SCHEMAS
 # ============================================================================
 
-class ExecutionResult(BaseModel):
-    """Wynik wykonania transakcji z agenta execution"""
-    order_id: str
+class ExecutedOrder(BaseModel):
+    """Wykonane zlecenie z agenta execution"""
+    order_id: str = Field(..., description="Unikalny ID zlecenia")
     ticker: str
-    signal: str = Field(..., description="BUY, SELL")
+    side: str = Field(..., description="BUY lub SELL")
     quantity: int
-    executed_price: float
-    status: str = Field(..., description="FILLED, PARTIAL, REJECTED, PENDING, CANCELLED")
+    entry_price: float = Field(..., description="Cena oczekiwana")
+    executed_price: float = Field(..., description="Cena wykonania")
+    stop: float
+    take_profit: float
+    status: str = Field(..., description="FILLED, PARTIAL, REJECTED, PENDING")
     executed_at: str
     commission: float = Field(default=0.0)
-    slippage: float = Field(default=0.0, description="Różnica między ceną oczekiwaną a wykonaną")
+    slippage: float = Field(default=0.0, description="Różnica entry vs executed")
     error_message: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
@@ -164,10 +190,12 @@ class StreamNames:
     """Nazwy Redis Streams używane w systemie"""
     NEWS_INGESTED = "news_ingested"
     NEWS_SCORED = "news_scored"
+    MARKET_MOMENTUM = "market_momentum"
+    TRADE_PROPOSALS = "trade_proposals"
+    APPROVED_TRADES = "approved_trades"
+    REJECTED_TRADES = "rejected_trades"
+    EXECUTED_ORDERS = "executed_orders"
     MARKET_DATA = "market:data"
-    SIGNALS_TRADING = "signals:trading"
-    SIGNALS_APPROVED = "signals:approved"
-    EXECUTIONS_COMPLETED = "executions:completed"
     ALERTS_SHOCKS = "alerts:shocks"
 
 
