@@ -87,22 +87,29 @@ class PolygonWebsocketClient:
             self.ws = await websockets.connect(self.ws_url)
             print(f"[PolygonWS] Connected to {self.ws_url}")
 
-            # Autoryzacja - wyślij API key
+            # Polygon wysyła PIERWSZY message: {"status":"connected","message":"Connected Successfully"}
+            # Odbierz i zignoruj ten message powitalny
+            welcome_msg = await self.ws.recv()
+            welcome_data = json.loads(welcome_msg)
+            print(f"[PolygonWS] Welcome: {welcome_data[0].get('message', 'connected')}")
+
+            # TERAZ wyślij autoryzację - wyślij API key
             auth_message = {
                 "action": "auth",
                 "params": self.api_key
             }
             await self.ws.send(json.dumps(auth_message))
+            print("[PolygonWS] Auth message sent, waiting for response...")
 
-            # Czekaj na potwierdzenie autoryzacji
-            response = await self.ws.recv()
-            response_data = json.loads(response)
+            # Czekaj na DRUGI message - potwierdzenie autoryzacji
+            auth_response = await self.ws.recv()
+            auth_data = json.loads(auth_response)
 
-            if response_data[0].get("status") == "auth_success":
+            if auth_data[0].get("status") == "auth_success":
                 print("[PolygonWS] ✓ Authentication successful")
                 self.connected = True
             else:
-                print(f"[PolygonWS] ✗ Authentication failed: {response_data}")
+                print(f"[PolygonWS] ✗ Authentication failed: {auth_data}")
                 self.connected = False
 
         except Exception as e:
