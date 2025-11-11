@@ -184,6 +184,26 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Agent: Market Data Finazon (TESTOWY - trial API)
+  agent-market-data-finazon:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-market-data-finazon
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=market_data_finazon
+      - FINAZON_API_KEY=${FINAZON_API_KEY}
+      - WATCHLIST=${WATCHLIST:-AAPL,TSLA,GOOG}
+      - MARKET_DATA_UPDATE_INTERVAL=${MARKET_DATA_UPDATE_INTERVAL:-60}
+    volumes:
+      - ./agents/market_data_finazon:/app/agent
+      - ./packages/common:/app/packages/common
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   # API
   api:
     build:
