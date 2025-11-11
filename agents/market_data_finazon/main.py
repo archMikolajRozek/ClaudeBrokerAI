@@ -232,7 +232,7 @@ class MarketDataFinazonAgent:
         await publish_message(
             self.redis_client,
             StreamNames.MARKET_CANDLES,
-            message.dict()
+            message.model_dump()  # Pydantic 2.x: model_dump() zamiast dict()
         )
 
         print(f"[market_data_finazon] ✓ Published: {ticker} @ {timestamp} | ${message.close:.2f}")
