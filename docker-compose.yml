@@ -70,24 +70,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Agent: Market Data
-  agent-market-data:
-    build:
-      context: .
-      dockerfile: ./infra/Dockerfile.agent
-    container_name: agent-market-data
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - AGENT_NAME=market_data
-      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
-      - POLYGON_API_KEY=${POLYGON_API_KEY}
-    volumes:
-      - ./agents/market_data:/app/agent
-      - ./packages/common:/app/packages/common
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
+  # Agent: Market Data (WYŁĄCZONY - Polygon wymaga $99/mo, używamy Finazon)
+  # agent-market-data:
+  #   build:
+  #     context: .
+  #     dockerfile: ./infra/Dockerfile.agent
+  #   container_name: agent-market-data
+  #   environment:
+  #     - REDIS_URL=redis://redis:6379
+  #     - AGENT_NAME=market_data
+  #     - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+  #     - POLYGON_API_KEY=${POLYGON_API_KEY}
+  #   volumes:
+  #     - ./agents/market_data:/app/agent
+  #     - ./packages/common:/app/packages/common
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   restart: unless-stopped
 
   # Agent: Strategy
   agent-strategy:
