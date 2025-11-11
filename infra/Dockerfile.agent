@@ -26,9 +26,6 @@ COPY packages/common /app/packages/common
 ENV PYTHONPATH=/app/packages:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 
-# Entrypoint script który zainstaluje agent-specific requirements
-COPY infra/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["python", "/app/agent/main.py"]
+# Uruchom agenta z automatyczną instalacją agent-specific requirements
+# Jeśli agent ma swój requirements.txt, zainstaluj go przed uruchomieniem
+CMD ["/bin/bash", "-c", "if [ -f /app/agent/requirements.txt ]; then echo '[Agent] Installing requirements...'; pip install --no-cache-dir -r /app/agent/requirements.txt; fi && echo '[Agent] Starting main.py...' && python /app/agent/main.py"]
