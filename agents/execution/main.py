@@ -94,7 +94,15 @@ class AlpacaBroker:
 
                     if response.status != 200:
                         text = await response.text()
-                        print(f"[AlpacaBroker] ✗ Order failed: HTTP {response.status} - {text}")
+                        print(f"[AlpacaBroker] ✗ Order failed: HTTP {response.status}")
+                        print(f"[AlpacaBroker]   URL: {url}")
+                        print(f"[AlpacaBroker]   Payload: {payload}")
+                        print(f"[AlpacaBroker]   Response: {text}")
+
+                        # Jeśli 404, prawdopodobnie rynek zamknięty lub nieprawidłowy ticker
+                        if response.status == 404:
+                            print(f"[AlpacaBroker]   💡 Hint: Rynek może być zamknięty (NYSE: 9:30-16:00 EST) lub ticker nieprawidłowy")
+
                         return {
                             "order_id": f"FAILED_{uuid.uuid4().hex[:8].upper()}",
                             "executed_price": entry_price,
