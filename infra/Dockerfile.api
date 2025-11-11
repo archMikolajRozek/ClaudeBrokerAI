@@ -22,6 +22,8 @@ COPY packages/common /app/packages/common
 # Copy API code (will be mounted as volume in dev)
 # COPY apps/api /app
 
+# Dodaj packages do PYTHONPATH żeby import common działał
+ENV PYTHONPATH=/app/packages:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
