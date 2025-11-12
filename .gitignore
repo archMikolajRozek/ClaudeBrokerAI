@@ -68,6 +68,9 @@ yarn-error.log*
 postgres_data/
 redis_data/
 
+# Agent caches
+agents/*/cache/
+
 # Logs
 logs/
 *.log
