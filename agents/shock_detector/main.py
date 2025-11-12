@@ -257,7 +257,7 @@ class ShockDetectorAgent:
                     self.redis_client,
                     self.output_stream,
                     self.agent_name,
-                    shock_event.dict(),
+                    shock_event.model_dump(),
                     message_type="MarketShockEvent"
                 )
 

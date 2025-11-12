@@ -327,7 +327,7 @@ class IngestNewsAgent:
                         self.redis_client,
                         StreamNames.NEWS_INGESTED,
                         self.agent_name,
-                        normalized.dict(),
+                        normalized.model_dump(),
                         message_type="NewsIngestedMessage"
                     )
 

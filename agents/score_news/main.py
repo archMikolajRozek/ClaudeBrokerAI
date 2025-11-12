@@ -191,7 +191,7 @@ class ScoreNewsAgent:
                 self.redis_client,
                 self.output_stream,
                 self.agent_name,
-                scored.dict(),
+                scored.model_dump(),
                 message_type="NewsScoredMessage"
             )
 

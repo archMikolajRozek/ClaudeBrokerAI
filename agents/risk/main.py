@@ -248,7 +248,7 @@ class RiskAgent:
                     self.redis_client,
                     self.approved_stream,
                     self.agent_name,
-                    approved_trade.dict(),
+                    approved_trade.model_dump(),
                     message_type="ApprovedTrade"
                 )
 
@@ -270,7 +270,7 @@ class RiskAgent:
                     self.redis_client,
                     self.rejected_stream,
                     self.agent_name,
-                    rejected_trade.dict(),
+                    rejected_trade.model_dump(),
                     message_type="RejectedTrade"
                 )
 

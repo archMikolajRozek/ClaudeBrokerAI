@@ -291,7 +291,7 @@ class ExecutionAgent:
                 self.redis_client,
                 self.output_stream,
                 self.agent_name,
-                executed_order.dict(),
+                executed_order.model_dump(),
                 message_type="ExecutedOrder"
             )
 

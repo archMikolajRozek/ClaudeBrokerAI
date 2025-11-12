@@ -136,7 +136,11 @@ class StrategyAgent:
     def __init__(self):
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         self.redis_client = None
-        self.input_streams = [StreamNames.NEWS_SCORED, StreamNames.MARKET_MOMENTUM]
+        self.input_streams = [
+            StreamNames.NEWS_SCORED,
+            StreamNames.MARKET_MOMENTUM,
+            StreamNames.MARKET_CANDLES  # Dodano: pobieranie cen bezpośrednio
+        ]
         self.output_stream = StreamNames.TRADE_PROPOSALS
         self.consumer_group = "strategy_group"
         self.consumer_name = "strategy_consumer_1"
@@ -236,6 +240,27 @@ class StrategyAgent:
             import traceback
             traceback.print_exc()
 
+    async def process_market_candle(self, message_id: str, message_data: Dict[str, str]):
+        """Przetwórz market candle message - aktualizuj latest_prices"""
+        try:
+            stream_msg = deserialize_message(message_data)
+            candle = MarketCandleMessage(**stream_msg.data)
+
+            # Update cache cen - używamy close price
+            self.latest_prices[candle.ticker] = candle.close
+
+            # ACK (nie generujemy sygnału, tylko aktualizujemy cenę)
+            await self.redis_client.xack(
+                StreamNames.MARKET_CANDLES,
+                self.consumer_group,
+                message_id
+            )
+
+        except Exception as e:
+            print(f"[{self.agent_name}] ❌ Error processing candle {message_id}: {e}")
+            import traceback
+            traceback.print_exc()
+
     async def try_generate_signal(self, ticker: str):
         """Spróbuj wygenerować sygnał dla tickera"""
 
@@ -283,7 +308,7 @@ class StrategyAgent:
                 self.redis_client,
                 self.output_stream,
                 self.agent_name,
-                proposal.dict(),
+                proposal.model_dump(),  # Pydantic 2.x
                 message_type="TradeProposal"
             )
 
@@ -318,6 +343,8 @@ class StrategyAgent:
                                 await self.process_news_scored(message_id, message_data)
                             elif stream_name == StreamNames.MARKET_MOMENTUM:
                                 await self.process_momentum_scored(message_id, message_data)
+                            elif stream_name == StreamNames.MARKET_CANDLES:
+                                await self.process_market_candle(message_id, message_data)
 
                             processed_count += 1
 

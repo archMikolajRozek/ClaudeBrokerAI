@@ -316,7 +316,7 @@ class MomentumAgent:
                 self.redis_client,
                 self.output_stream,
                 self.agent_name,
-                momentum_msg.dict(),
+                momentum_msg.model_dump(),
                 message_type="MarketMomentum"
             )
 

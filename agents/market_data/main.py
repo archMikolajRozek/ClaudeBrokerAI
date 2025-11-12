@@ -543,7 +543,7 @@ class MarketDataAgent:
                 self.redis_client,
                 self.output_stream,
                 self.agent_name,
-                candle_msg.dict(),
+                candle_msg.model_dump(),
                 message_type="MarketCandle"
             )
 
