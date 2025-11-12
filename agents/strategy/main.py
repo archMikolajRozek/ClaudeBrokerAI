@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../packages'))
 from common.schemas import (
     NewsScoredMessage,
     MarketMomentumMessage,
+    MarketCandleMessage,  # DODANE - fix NameError
     TradeProposal,
     StreamNames
 )
