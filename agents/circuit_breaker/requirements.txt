@@ -1,0 +1,8 @@
+# Redis client
+redis==5.0.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Schemas
+pydantic==2.5.3

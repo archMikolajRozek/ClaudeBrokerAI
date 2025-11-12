@@ -204,6 +204,26 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Agent: Circuit Breaker (Emergency Stop - Last Line of Defense)
+  agent-circuit-breaker:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.agent
+    container_name: agent-circuit-breaker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_NAME=circuit_breaker
+      - RISK_NAV=${RISK_NAV:-50000.0}
+      - RISK_DAILY_LOSS_PCT=${RISK_DAILY_LOSS_PCT:-0.02}
+      - CIRCUIT_BREAKER_MAX_DRAWDOWN=${CIRCUIT_BREAKER_MAX_DRAWDOWN:-0.10}
+    volumes:
+      - ./agents/circuit_breaker:/app/agent
+      - ./packages/common:/app/packages/common
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   # API
   api:
     build:
