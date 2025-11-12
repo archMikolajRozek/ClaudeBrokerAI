@@ -245,17 +245,26 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # UI (placeholder - requires npm install)
-  # ui:
-  #   build:
-  #     context: ./apps/ui
-  #     dockerfile: ../../infra/Dockerfile.ui
-  #   container_name: ai-portfolio-ui
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - api
-  #   restart: unless-stopped
+  # UI - Streamlit Dashboard
+  ui:
+    image: python:3.11-slim
+    container_name: ai-portfolio-ui
+    working_dir: /app
+    command: >
+      bash -c "pip install --no-cache-dir -r requirements.txt &&
+               streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - RISK_NAV=${RISK_NAV:-50000.0}
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./apps/ui:/app
+      - ./packages/common:/app/packages/common
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   redis_data:
