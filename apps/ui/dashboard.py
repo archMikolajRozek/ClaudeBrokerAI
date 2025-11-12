@@ -273,6 +273,70 @@ def render_header():
         )
 
 
+def render_system_status(client):
+    """
+    Render system status - pokazuje czy wszystko działa
+    DEBUGGING SECTION - pomaga zdiagnozować problemy
+    """
+    st.subheader("🔧 System Status")
+
+    # Check Redis connection
+    try:
+        client.ping()
+        redis_status = "✅ Connected"
+        redis_color = "normal"
+    except:
+        redis_status = "❌ Disconnected"
+        redis_color = "inverse"
+
+    # Get stream lengths
+    streams_info = {
+        "market_candles": get_stream_length(client, "market_candles"),
+        "news_scored": get_stream_length(client, "news_scored"),
+        "market_momentum": get_stream_length(client, "market_momentum"),
+        "trade_proposals": get_stream_length(client, "trade_proposals"),
+        "approved_trades": get_stream_length(client, "approved_trades"),
+        "executed_orders": get_stream_length(client, "executed_orders")
+    }
+
+    # Display in columns
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("🔗 Redis", redis_status)
+        st.metric("📊 Market Data", streams_info["market_candles"],
+                 help="Liczba candles w streamie market_candles")
+
+    with col2:
+        st.metric("📰 News", streams_info["news_scored"],
+                 help="Liczba wiadomości w streamie news_scored")
+        st.metric("📈 Momentum", streams_info["market_momentum"],
+                 help="Liczba sygnałów momentum")
+
+    with col3:
+        st.metric("🎯 Trade Proposals", streams_info["trade_proposals"],
+                 help="Propozycje transakcji od strategy agent")
+        st.metric("✅ Approved", streams_info["approved_trades"],
+                 help="Zaakceptowane przez risk agent")
+
+    with col4:
+        st.metric("💼 Executed", streams_info["executed_orders"],
+                 help="Wykonane zlecenia")
+
+    # Warning if no data
+    if all(count == 0 for count in streams_info.values()):
+        st.warning("⚠️ **Brak danych w Redis streams!** Agenty mogą jeszcze się uruchamiać lub wystąpił problem.")
+        st.info("💡 **Troubleshooting:**\n"
+               "1. Sprawdź logi: `docker-compose logs --tail=50 agent-market-data-finazon`\n"
+               "2. Sprawdź czy Finazon agent pobiera tickery\n"
+               "3. Sprawdź czy inne agenty działają: `docker-compose ps`\n"
+               "4. Finazon potrzebuje ~2 minuty na initial fetch tickerów")
+    elif streams_info["market_candles"] == 0:
+        st.warning("⚠️ **Brak market data!** Finazon agent może jeszcze fetchować listę tickerów (trwa ~2 min)")
+    elif streams_info["executed_orders"] == 0:
+        st.info("ℹ️ System działa, ale nie ma jeszcze wykonanych transakcji. Czekam na sygnały...")
+
+
 def render_portfolio_overview(client):
     """Render głównych metrics portfolio"""
     st.subheader("📊 Portfolio Overview")
@@ -618,14 +682,14 @@ def render_sidebar():
     with st.sidebar:
         st.header("⚙️ Dashboard Controls")
 
-        # Auto-refresh
-        auto_refresh = st.checkbox("🔄 Auto-Refresh", value=True)
+        # Auto-refresh (zwraca settings)
+        auto_refresh = st.checkbox("🔄 Auto-Refresh", value=False,
+                                   help="Automatically refresh dashboard every N seconds")
 
+        refresh_interval = 10
         if auto_refresh:
-            refresh_interval = st.slider("Refresh Interval (sec)", 5, 60, 5)
-            st.info(f"Auto-refreshing every {refresh_interval}s")
-            time.sleep(refresh_interval)
-            st.rerun()
+            refresh_interval = st.slider("Refresh Interval (sec)", 5, 60, 10)
+            st.info(f"✅ Auto-refresh aktywny ({refresh_interval}s)")
 
         st.divider()
 
@@ -650,6 +714,8 @@ def render_sidebar():
             st.metric("trade_proposals", get_stream_length(client, "trade_proposals"))
             st.metric("executed_orders", get_stream_length(client, "executed_orders"))
 
+    return auto_refresh, refresh_interval
+
 
 # ============================================================================
 # Main App
@@ -669,8 +735,12 @@ def main():
     render_header()
     st.divider()
 
-    # Render sidebar
-    render_sidebar()
+    # Render sidebar (returns auto-refresh settings)
+    auto_refresh, refresh_interval = render_sidebar()
+
+    # System Status (DEBUGGING - pokazuje czy wszystko działa)
+    render_system_status(client)
+    st.divider()
 
     # Main content - 2 columns
     col_main, col_side = st.columns([3, 1])
@@ -707,6 +777,11 @@ def main():
         st.divider()
 
         render_system_health(client)
+
+    # Auto-refresh at the end (after all content is rendered)
+    if auto_refresh:
+        time.sleep(refresh_interval)
+        st.rerun()
 
 
 if __name__ == "__main__":
