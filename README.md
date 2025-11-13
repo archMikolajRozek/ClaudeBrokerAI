@@ -6,7 +6,7 @@
 
 - **NAV (Net Asset Value)**: $50,000 USD (z dostępnych $100,000 na demo account)
 - **Ryzyko per trade**: 0.5% NAV ($250 max risk/trade)
-- **Max pozycje**: 5 jednocześnie
+- **Max pozycje**: 10 jednocześnie (zwiększone z 5 dla lepszej dywersyfikacji)
 - **Daily loss limit**: 2% NAV ($1,000 max strata dzienna)
 - **Max drawdown**: 10% od peak equity ($5,000)
 - **Stop loss**: 1% (intraday tight stops)
@@ -17,13 +17,13 @@
 
 ### ✅ **Kapitał i Alokacja**
 - **NAV-based position sizing** - Każda pozycja = 0.5% ryzyka NAV
-- **Max 5 pozycji** - Dywersyfikacja bez over-exposure
+- **Max 10 pozycji** - Lepsza dywersyfikacja portfela (zwiększone z 5)
 - **Circuit breaker** - Emergency stop przy daily loss > $1,000 lub drawdown > 10%
 - **Smart capital management** - System może wycofać kapitał w złych warunkach i czekać na lepsze okazje
 
 ### 📊 **Real-time Data & Analysis**
-- **Market data (Finazon.io)** - 1-minute candles dla AAPL, TSLA, GOOG
-- **News ingestion** - RSS feeds z NewsAPI (5-minute intervals)
+- **Market data (Finazon.io US Stocks Essential)** - 1-minute candles dla **100+ US stocks** (NYSE/NASDAQ)
+- **News ingestion** - RSS feeds z NewsAPI dla top 7 tickerów (5-minute intervals)
 - **AI news scoring** - Time-weighted exponential decay (τ=0.5h dla intraday)
 - **Technical indicators** - RSI, MACD, EMA, Bollinger Bands, ATR
 - **Momentum analysis** - Combined RSI + MACD + ROC score [-1, 1]
@@ -121,12 +121,12 @@ System zaprojektowany jak **profesjonalny hedge fund** z Wall Street. Każdy age
 
 | Agent | Status | Rola | Input Streams | Output Streams | Kluczowe Funkcje |
 |-------|--------|------|---------------|----------------|------------------|
-| **ingest_news** | ✅ | Pobiera wiadomości finansowe | - | `news_ingested` | NewsAPI integration, watchlist filtering, 5-min polling |
+| **ingest_news** | ✅ | Pobiera wiadomości finansowe | - | `news_ingested` | NewsAPI integration, watchlist filtering (7 tickerów), 5-min polling |
 | **score_news** | ✅ | AI scoring + time decay | `news_ingested` | `news_scored` | Exponential decay τ=0.5h, heuristic scoring, sentiment analysis |
-| **market_data_finazon** | ✅ | Real-time market data | - | `market_candles` | Finazon.io REST API, 1-min candles, rate limiting (5 req/min) |
+| **market_data_finazon** | ✅ | Real-time market data | - | `market_candles` | Finazon.io US Stocks Essential, **100+ tickers**, 1-min candles, smart rate limiting |
 | **momentum** | ✅ | Technical analysis | `market_candles` | `market_momentum` | RSI, MACD, ROC calculation, sliding window (50 bars) |
 | **strategy** | ✅ | Signal generation | `news_scored`, `market_momentum`, `market_candles` | `trade_proposals` | Hybrid scoring α=0.6, threshold=0.3, TP/SL calculation |
-| **risk** | ✅ | Position sizing & approval | `trade_proposals` | `approved_trades`, `rejected_trades` | NAV-based sizing, max positions=5, daily loss tracking |
+| **risk** | ✅ | Position sizing & approval | `trade_proposals` | `approved_trades`, `rejected_trades` | NAV-based sizing, **max positions=10**, daily loss tracking |
 | **execution** | ✅ | Trade execution | `approved_trades` | `executed_orders` | Alpaca API integration, market orders, order tracking |
 | **circuit_breaker** | ✅ | Emergency protection | `executed_orders` | `system_alerts` | Daily loss limit ($1k), max drawdown (10%), trading halt |
 | **shock_detector** | ✅ | Price anomaly detection | `market_candles` | `price_shocks` | Z-score > 2σ, volume percentile > 80%, sliding window |
@@ -211,9 +211,9 @@ ClaudeBrokerAI/
 
 ### API Keys (Wymagane)
 
-Potrzebujesz darmowych kont na:
+Potrzebujesz kont na:
 - **NewsAPI** (https://newsapi.org/) - Pobieranie wiadomości (darmowy tier: 100 req/day)
-- **Finazon.io** (https://finazon.io/) - Market data (trial: 5 req/min, AAPL/TSLA/GOOG)
+- **Finazon.io** (https://finazon.io/) - **US Stocks Essential Plan** (~$29/mies) - Real-time data dla 100+ US stocks
 - **Alpaca** (https://alpaca.markets/) - Paper trading (darmowe konto demo $100k)
 
 Opcjonalnie (dla AI scoring - obecnie używamy heurystyki):
@@ -256,9 +256,14 @@ ALPACA_BASE_URL=https://paper-api.alpaca.markets
 # Kapitał i ryzyko (domyślne wartości są OK)
 RISK_NAV=50000.0
 RISK_MAX_PER_TRADE_PCT=0.005
-RISK_MAX_POSITIONS=5
+RISK_MAX_POSITIONS=10
 RISK_DAILY_LOSS_PCT=0.02
 CIRCUIT_BREAKER_MAX_DRAWDOWN=0.10
+
+# Market Data (Finazon US Stocks Essential)
+MAX_TICKERS=100  # Ile tickerów monitorować (100+ recommended)
+MIN_STOCK_PRICE=5.0  # Minimalna cena (unikaj penny stocks)
+EXCHANGES=xnys,xnas  # NYSE, NASDAQ
 ```
 
 **4. Uruchom Docker Desktop**
@@ -379,13 +384,16 @@ System podejmuje decyzje handlowe w 5-warstwowej architekturze. Każdy trade prz
 ### 1️⃣ **Data Ingestion** (Co 60 sekund)
 
 **Market Data Finazon Agent:**
-- Pobiera 1-min candles dla AAPL, TSLA, GOOG z Finazon.io
+- Pobiera 1-min candles dla **100+ US stocks** (NYSE/NASDAQ) z Finazon.io US Stocks Essential
+- Dynamiczne pobieranie listy tickerów z `/tickers` endpoint
+- Smart filtering: COMMON_STOCK, min price $5, top exchanges
+- Batch processing (5 tickers/min) z rate limiting
 - Publikuje do `market_candles` stream
 - Format: `{ticker, timestamp, open, high, low, close, volume}`
 
 **Ingest News Agent:** (Co 5 minut)
-- Pobiera wiadomości z NewsAPI dla watchlist
-- Filtruje po tickerach (AAPL, TSLA, GOOG)
+- Pobiera wiadomości z NewsAPI dla watchlist (7 głównych tickerów: AAPL, MSFT, GOOGL, AMZN, TSLA, META, NVDA)
+- Filtruje po kluczowych tickerach (rate limit NewsAPI)
 - Publikuje do `news_ingested` stream
 
 ### 2️⃣ **Analysis & Scoring**
@@ -447,7 +455,7 @@ System podejmuje decyzje handlowe w 5-warstwowej architekturze. Każdy trade prz
 - Konsumuje `trade_proposals`
 - **Walidacja multi-level:**
   1. ✅ **Daily loss check**: Czy daily_pnl > -$1,000?
-  2. ✅ **Max positions check**: Czy mamy < 5 pozycji?
+  2. ✅ **Max positions check**: Czy mamy < 10 pozycji?
   3. ✅ **Duplicate check**: Czy już mamy pozycję na tym tickerze?
   4. ✅ **Position sizing**: `quantity = (NAV × 0.005) / risk_per_share`
      - NAV = $50,000
@@ -600,7 +608,7 @@ RISK_NAV=50000.0                 # $50,000 USD
 
 # Position sizing
 RISK_MAX_PER_TRADE_PCT=0.005     # 0.5% NAV per trade = $250 max risk
-RISK_MAX_POSITIONS=5             # Max 5 simultaneous positions
+RISK_MAX_POSITIONS=10            # Max 10 simultaneous positions (zwiększone z 5)
 
 # Daily limits
 RISK_DAILY_LOSS_PCT=0.02         # 2% daily loss = $1,000 max loss/day
@@ -622,7 +630,7 @@ STRATEGY_THRESHOLD=0.3           # Min combined score to trade
 - Max risk per trade: $50,000 × 0.005 = **$250**
 - Daily loss limit: $50,000 × 0.02 = **$1,000**
 - Max drawdown: $50,000 × 0.10 = **$5,000**
-- Max capital at risk (5 positions): $250 × 5 = **$1,250** (2.5% NAV)
+- Max capital at risk (10 positions): $250 × 10 = **$2,500** (5% NAV)
 
 ### Parametry News Decay (Intraday)
 
@@ -679,11 +687,15 @@ FORCE_CLOSE_MINUTE=55            # Close all positions 3:55 PM (avoid overnight)
 ### API Keys (Wymagane)
 
 ```bash
-# Market Data (trial: AAPL, TSLA, GOOG only)
+# Market Data (Finazon US Stocks Essential Plan - 100+ tickers real-time)
 FINAZON_API_KEY=your-finazon-key
+MAX_TICKERS=100
+MIN_STOCK_PRICE=5.0
+EXCHANGES=xnys,xnas
 
-# News
+# News (NewsAPI - dla top 7 tickerów)
 NEWS_API_KEY=your-newsapi-key
+WATCHLIST=AAPL,MSFT,GOOGL,AMZN,TSLA,META,NVDA
 
 # Broker (paper trading)
 ALPACA_API_KEY=your-alpaca-key
@@ -879,7 +891,7 @@ Sprawdź logi `agent-score-news` - powinien przetworzyć i scoring.
 
 **3. Risk Management:**
 - ✅ Circuit breaker ZAWSZE włączony (`CIRCUIT_BREAKER_MAX_DRAWDOWN=0.10`)
-- ✅ Max 2.5% NAV at risk (5 positions × 0.5%)
+- ✅ Max 5% NAV at risk (10 positions × 0.5%)
 - ✅ Daily loss limit enforcement ($1,000 max)
 - ✅ Monitoruj logi daily
 
