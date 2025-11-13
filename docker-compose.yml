@@ -127,22 +127,24 @@ services:
 
   # IB Gateway - Interactive Brokers API Gateway (Paper Trading)
   ib-gateway:
-    image: ghcr.io/unusualalpha/ib-gateway-docker:latest
+    image: ghcr.io/gnzsnz/ib-gateway:latest
     container_name: ib-gateway
     environment:
       - TRADING_MODE=paper  # paper or live
       - TWS_USERID=${IBKR_USERNAME}  # Your IBKR username
       - TWS_PASSWORD=${IBKR_PASSWORD}  # Your IBKR password
-      - READ_ONLY_API=no  # Allow trading through API
+      - TWOFA_TIMEOUT_ACTION=restart  # Restart on 2FA timeout (paper trading doesn't need 2FA)
+      - VNC_SERVER_PASSWORD=  # No VNC password (optional monitoring)
     ports:
       - "127.0.0.1:4002:4002"  # Paper trading port
       - "127.0.0.1:5900:5900"  # VNC (optional, for monitoring)
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "4002"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4002 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 40s
 
   # Agent: Execution (IBKR) - PRIMARY
   agent-execution:
