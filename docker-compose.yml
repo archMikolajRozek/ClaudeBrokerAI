@@ -125,25 +125,66 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Agent: Execution
+  # IB Gateway - Interactive Brokers API Gateway (Paper Trading)
+  ib-gateway:
+    image: ghcr.io/unusualalpha/ib-gateway-docker:latest
+    container_name: ib-gateway
+    environment:
+      - TRADING_MODE=paper  # paper or live
+      - TWS_USERID=${IBKR_USERNAME}  # Your IBKR username
+      - TWS_PASSWORD=${IBKR_PASSWORD}  # Your IBKR password
+      - READ_ONLY_API=no  # Allow trading through API
+    ports:
+      - "127.0.0.1:4002:4002"  # Paper trading port
+      - "127.0.0.1:5900:5900"  # VNC (optional, for monitoring)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4002"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Agent: Execution (IBKR) - PRIMARY
   agent-execution:
     build:
       context: .
       dockerfile: ./infra/Dockerfile.agent
-    container_name: agent-execution
+    container_name: agent-execution-ibkr
     environment:
       - REDIS_URL=redis://redis:6379
-      - AGENT_NAME=execution
-      - ALPACA_API_KEY=${ALPACA_API_KEY}
-      - ALPACA_API_SECRET=${ALPACA_API_SECRET}
-      - ALPACA_BASE_URL=${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+      - AGENT_NAME=execution_ibkr
+      - IBKR_HOST=${IBKR_HOST:-ib-gateway}
+      - IBKR_PORT=${IBKR_PORT:-4002}
+      - IBKR_CLIENT_ID=${IBKR_CLIENT_ID:-1}
     volumes:
-      - ./agents/execution:/app/agent
+      - ./agents/execution_ibkr:/app/agent
       - ./packages/common:/app/packages/common
     depends_on:
       redis:
         condition: service_healthy
+      ib-gateway:
+        condition: service_started
     restart: unless-stopped
+
+  # Agent: Execution (Alpaca) - BACKUP (uncomment to use)
+  # agent-execution-alpaca:
+  #   build:
+  #     context: .
+  #     dockerfile: ./infra/Dockerfile.agent
+  #   container_name: agent-execution-alpaca
+  #   environment:
+  #     - REDIS_URL=redis://redis:6379
+  #     - AGENT_NAME=execution_alpaca
+  #     - ALPACA_API_KEY=${ALPACA_API_KEY}
+  #     - ALPACA_API_SECRET=${ALPACA_API_SECRET}
+  #     - ALPACA_BASE_URL=${ALPACA_BASE_URL:-https://paper-api.alpaca.markets}
+  #   volumes:
+  #     - ./agents/execution_alpaca:/app/agent
+  #     - ./packages/common:/app/packages/common
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   restart: unless-stopped
 
   # Agent: Shock Detector
   agent-shock-detector:

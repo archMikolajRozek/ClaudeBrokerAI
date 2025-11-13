@@ -214,7 +214,13 @@ ClaudeBrokerAI/
 Potrzebujesz kont na:
 - **NewsAPI** (https://newsapi.org/) - Pobieranie wiadomości (darmowy tier: 100 req/day)
 - **Finazon.io** (https://finazon.io/) - **US Stocks Essential Plan** (~$29/mies) - Real-time data dla 100+ US stocks
-- **Alpaca** (https://alpaca.markets/) - Paper trading (darmowe konto demo $100k)
+- **Interactive Brokers** (https://www.interactivebrokers.com/) - **PRIMARY BROKER** - Paper Trading Account (darmowe $1M wirtualnego kapitału)
+  - Professional trading platform z najniższymi prowizjami na rynku
+  - Pełny dostęp do US stocks, options, futures
+  - Paper trading w 100% symuluje live trading
+- **Alpaca** (https://alpaca.markets/) - BACKUP broker - Paper trading (darmowe konto demo $100k)
+  - Zachowany jako alternatywny broker
+  - Łatwy w konfiguracji (REST API)
 
 Opcjonalnie (dla AI scoring - obecnie używamy heurystyki):
 - **OpenAI** (https://platform.openai.com/) lub **Anthropic** (https://console.anthropic.com/)
@@ -248,10 +254,15 @@ FINAZON_API_KEY=twoj-klucz-z-finazon
 # News API
 NEWS_API_KEY=twoj-klucz-z-newsapi
 
-# Alpaca Paper Trading
-ALPACA_API_KEY=twoj-klucz-z-alpaca
-ALPACA_API_SECRET=twoj-secret-z-alpaca
-ALPACA_BASE_URL=https://paper-api.alpaca.markets
+# Interactive Brokers (PRIMARY BROKER)
+IBKR_USERNAME=twoj-username-ibkr
+IBKR_PASSWORD=twoje-haslo-ibkr
+IBKR_PORT=4002  # 4002=paper trading, 4001=live trading
+
+# Alpaca Paper Trading (BACKUP - skomentowane domyślnie)
+# ALPACA_API_KEY=twoj-klucz-z-alpaca
+# ALPACA_API_SECRET=twoj-secret-z-alpaca
+# ALPACA_BASE_URL=https://paper-api.alpaca.markets
 
 # Kapitał i ryzyko (domyślne wartości są OK)
 RISK_NAV=50000.0
@@ -266,11 +277,38 @@ MIN_STOCK_PRICE=5.0  # Minimalna cena (unikaj penny stocks)
 EXCHANGES=xnys,xnas  # NYSE, NASDAQ
 ```
 
-**4. Uruchom Docker Desktop**
+**4. Setup Interactive Brokers Paper Trading Account**
+
+IBKR wymaga kilku dodatkowych kroków setup:
+
+a) **Załóż konto paper trading:**
+   - Przejdź do https://www.interactivebrokers.com/
+   - Wybierz "Open Account" → "Individual" → "Paper Trading"
+   - Wypełnij formularz (weryfikacja email zajmuje ~10 minut)
+   - Po aktywacji otrzymasz username i password
+
+b) **Włącz API access w portalu IBKR:**
+   - Zaloguj się do Client Portal (https://www.interactivebrokers.com/sso/Login)
+   - Przejdź do **Settings** → **API** → **Settings**
+   - Zaznacz **"Enable ActiveX and Socket Clients"**
+   - Dodaj **Trusted IP**: `127.0.0.1` (localhost)
+   - **SAVE settings**
+
+c) **Opcjonalnie - Test połączenia z IB Gateway:**
+   - Docker automatycznie uruchamia IB Gateway
+   - Możesz monitorować przez VNC: `http://localhost:5900` (hasło: brak)
+   - IB Gateway loguje się automatycznie używając IBKR_USERNAME i IBKR_PASSWORD z `.env`
+
+**WAŻNE NOTES:**
+- Paper trading używa portu **4002** (live trading to 4001)
+- IB Gateway automatycznie resetuje sesję co 24h (wymaga re-login)
+- System automatycznie reconnect po disconnect
+
+**5. Uruchom Docker Desktop**
 - Otwórz Docker Desktop app
 - Poczekaj aż status zmieni się na "Engine running"
 
-**5. Build i uruchom wszystkie kontenery (PowerShell)**
+**6. Build i uruchom wszystkie kontenery (PowerShell)**
 ```powershell
 docker-compose up --build
 ```
