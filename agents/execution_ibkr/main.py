@@ -50,22 +50,38 @@ class IBKRBroker:
 
         print(f"[IBKRBroker] Initialized with host={host}, port={port}, client_id={client_id}")
 
-    async def connect(self):
-        """Connect to IB Gateway"""
-        try:
-            await self.ib.connectAsync(self.host, self.port, clientId=self.client_id)
-            self.connected = True
-            print(f"[IBKRBroker] ✓ Connected to IB Gateway at {self.host}:{self.port}")
+    async def connect(self, max_retries: int = 5, delay: int = 10):
+        """
+        Connect to IB Gateway with retry logic
 
-            # Get account info
-            accounts = self.ib.managedAccounts()
-            print(f"[IBKRBroker] Available accounts: {accounts}")
+        Args:
+            max_retries: Maximum number of connection attempts
+            delay: Seconds to wait between retries
 
-            return True
-        except Exception as e:
-            print(f"[IBKRBroker] ✗ Connection failed: {e}")
-            self.connected = False
-            return False
+        Note:
+            IB Gateway needs ~10 seconds after login before API port is ready
+        """
+        for attempt in range(max_retries):
+            try:
+                print(f"[IBKRBroker] Connection attempt {attempt + 1}/{max_retries}...")
+                await self.ib.connectAsync(self.host, self.port, clientId=self.client_id)
+                self.connected = True
+                print(f"[IBKRBroker] ✓ Connected to IB Gateway at {self.host}:{self.port}")
+
+                # Get account info
+                accounts = self.ib.managedAccounts()
+                print(f"[IBKRBroker] Available accounts: {accounts}")
+
+                return True
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"[IBKRBroker] Connection failed: {e}")
+                    print(f"[IBKRBroker] Retrying in {delay} seconds... (IB Gateway may still be starting)")
+                    await asyncio.sleep(delay)
+                else:
+                    print(f"[IBKRBroker] ✗ Connection failed after {max_retries} attempts: {e}")
+                    self.connected = False
+                    return False
 
     async def disconnect(self):
         """Disconnect from IB Gateway"""
@@ -173,6 +189,7 @@ class IBKRBroker:
             net_liquidation = 0.0
             available_funds = 0.0
             buying_power = 0.0
+            cash_balance = 0.0
 
             for value in account_values:
                 if value.tag == 'NetLiquidation':
@@ -181,15 +198,49 @@ class IBKRBroker:
                     available_funds = float(value.value)
                 elif value.tag == 'BuyingPower':
                     buying_power = float(value.value)
+                elif value.tag == 'CashBalance':
+                    cash_balance = float(value.value)
 
             return {
                 "net_liquidation": net_liquidation,
                 "available_funds": available_funds,
                 "buying_power": buying_power,
+                "cash_balance": cash_balance,
             }
         except Exception as e:
             print(f"[IBKRBroker] Error getting account info: {e}")
             return {}
+
+    async def get_positions(self) -> list[Dict[str, Any]]:
+        """
+        Get all current positions from IBKR account
+
+        Returns:
+            List of positions with ticker, quantity, avg_cost, market_value
+        """
+        if not self.connected:
+            return []
+
+        try:
+            positions = self.ib.positions()
+
+            result = []
+            for position in positions:
+                # Extract stock symbol
+                ticker = position.contract.symbol
+
+                result.append({
+                    "ticker": ticker,
+                    "quantity": position.position,  # Positive for long, negative for short
+                    "avg_cost": position.avgCost,
+                    "market_value": position.marketValue,
+                    "unrealized_pnl": position.unrealizedPNL,
+                })
+
+            return result
+        except Exception as e:
+            print(f"[IBKRBroker] Error getting positions: {e}")
+            return []
 
 
 class ExecutionAgentIBKR:
@@ -223,6 +274,44 @@ class ExecutionAgentIBKR:
         print(f"[execution_ibkr] Initialized")
         print(f"[execution_ibkr]   IBKR: {self.ibkr_host}:{self.ibkr_port}")
         print(f"[execution_ibkr]   Consumer: {self.consumer_name}")
+
+    async def sync_with_ibkr(self):
+        """
+        Synchronize Redis state with actual IBKR account state
+
+        Compares positions and account info between Redis and IBKR,
+        logs any discrepancies to help detect manual trades or errors.
+        """
+        try:
+            # Get IBKR account info
+            account_info = await self.broker.get_account_info()
+            if account_info:
+                print(f"\n[execution_ibkr] === IBKR Account Sync ===")
+                print(f"[execution_ibkr] Net Liquidation: ${account_info.get('net_liquidation', 0):,.2f}")
+                print(f"[execution_ibkr] Cash Balance: ${account_info.get('cash_balance', 0):,.2f}")
+                print(f"[execution_ibkr] Buying Power: ${account_info.get('buying_power', 0):,.2f}")
+
+            # Get IBKR positions
+            ibkr_positions = await self.broker.get_positions()
+            if ibkr_positions:
+                print(f"[execution_ibkr] Open Positions ({len(ibkr_positions)}):")
+                for pos in ibkr_positions:
+                    pnl_sign = "+" if pos['unrealized_pnl'] >= 0 else ""
+                    print(f"[execution_ibkr]   {pos['ticker']}: {pos['quantity']} shares @ ${pos['avg_cost']:.2f} "
+                          f"(P&L: {pnl_sign}${pos['unrealized_pnl']:.2f})")
+            else:
+                print(f"[execution_ibkr] No open positions")
+
+            print(f"[execution_ibkr] ========================\n")
+
+            # TODO: Compare with Redis state (portfolio_agent positions)
+            # This would require fetching current positions from Redis and comparing
+            # For now, we just log IBKR state as source of truth
+
+        except Exception as e:
+            print(f"[execution_ibkr] Error syncing with IBKR: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def connect_redis(self):
         """Connect to Redis"""
@@ -329,6 +418,10 @@ class ExecutionAgentIBKR:
 
         print(f"\n[execution_ibkr] 🚀 Listening for approved trades...")
 
+        # Track last sync time
+        last_sync_time = datetime.now(timezone.utc)
+        sync_interval_seconds = 300  # 5 minutes
+
         try:
             while True:
                 # Read from approved_trades stream
@@ -339,6 +432,12 @@ class ExecutionAgentIBKR:
                     count=1,
                     block=5000  # 5 second timeout
                 )
+
+                # Periodic sync with IBKR (every 5 minutes)
+                current_time = datetime.now(timezone.utc)
+                if (current_time - last_sync_time).total_seconds() >= sync_interval_seconds:
+                    await self.sync_with_ibkr()
+                    last_sync_time = current_time
 
                 if not messages:
                     continue
