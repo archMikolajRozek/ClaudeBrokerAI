@@ -359,6 +359,15 @@ class MarketDataFinazonAgent:
         filtered = []
         seen_tickers = set()
 
+        # Debug counters
+        rejected_asset_type = 0
+        rejected_exchange = 0
+        rejected_format = 0
+        rejected_duplicate = 0
+
+        # Sample first 5 rejected tickers for debugging
+        debug_samples = []
+
         for item in all_tickers:
             ticker = item.get("ticker")
             asset_type = item.get("asset_type", "")
@@ -370,19 +379,29 @@ class MarketDataFinazonAgent:
 
             # Skip jeśli już widziany (deduplication)
             if ticker in seen_tickers:
+                rejected_duplicate += 1
                 continue
 
             # Filter: COMMON_STOCK only
             if asset_type != "COMMON_STOCK":
+                rejected_asset_type += 1
+                if len(debug_samples) < 5:
+                    debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
                 continue
 
             # Filter: allowed exchanges
             if self.allowed_exchanges and mic not in self.allowed_exchanges:
+                rejected_exchange += 1
+                if len(debug_samples) < 5:
+                    debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
                 continue
 
             # Skip penny stock tickers (zazwyczaj < 4 chars lub zawierają '.')
             # NYSE/NASDAQ tickers są usually 1-5 chars bez kropki
             if len(ticker) > 5 or "." in ticker:
+                rejected_format += 1
+                if len(debug_samples) < 5:
+                    debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
                 continue
 
             filtered.append(ticker)
@@ -392,6 +411,16 @@ class MarketDataFinazonAgent:
         filtered.sort()
 
         print(f"[market_data_finazon] Filtered: {len(filtered)} tickers from {len(all_tickers)} total")
+        if len(filtered) == 0:
+            print(f"[market_data_finazon] DEBUG - Rejection reasons:")
+            print(f"[market_data_finazon]   Asset type: {rejected_asset_type}")
+            print(f"[market_data_finazon]   Exchange: {rejected_exchange}")
+            print(f"[market_data_finazon]   Format: {rejected_format}")
+            print(f"[market_data_finazon]   Duplicate: {rejected_duplicate}")
+            if debug_samples:
+                print(f"[market_data_finazon] Sample rejected tickers:")
+                for sample in debug_samples:
+                    print(f"[market_data_finazon]   - {sample}")
         return filtered
 
     async def load_or_fetch_tickers(self) -> List[str]:
