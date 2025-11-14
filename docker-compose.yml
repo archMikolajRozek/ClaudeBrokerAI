@@ -140,6 +140,8 @@ services:
     ports:
       - "127.0.0.1:4002:4002"  # Paper trading port
       - "127.0.0.1:5900:5900"  # VNC (optional, for monitoring)
+    volumes:
+      - ./ibkr_config/jts.ini:/home/ibgateway/Jts/jts.ini  # Custom config with TrustedIPs=0.0.0.0
     restart: unless-stopped
     # Note: IB Gateway API port 4002 is a socket (not HTTP), so healthcheck is removed
     # Use 'docker logs ib-gateway' to monitor status
