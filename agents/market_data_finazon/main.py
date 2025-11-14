@@ -382,24 +382,26 @@ class MarketDataFinazonAgent:
                 rejected_duplicate += 1
                 continue
 
-            # Filter: COMMON_STOCK only
-            if asset_type != "COMMON_STOCK":
-                rejected_asset_type += 1
-                if len(debug_samples) < 5:
-                    debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
-                continue
-
-            # Filter: allowed exchanges
+            # Filter 1: allowed exchanges FIRST (most important)
             if self.allowed_exchanges and mic not in self.allowed_exchanges:
                 rejected_exchange += 1
                 if len(debug_samples) < 5:
                     debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
                 continue
 
-            # Skip penny stock tickers (zazwyczaj < 4 chars lub zawierają '.')
+            # Filter 2: Format - skip penny stock tickers (zazwyczaj < 4 chars lub zawierają '.')
             # NYSE/NASDAQ tickers są usually 1-5 chars bez kropki
             if len(ticker) > 5 or "." in ticker:
                 rejected_format += 1
+                if len(debug_samples) < 5:
+                    debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
+                continue
+
+            # Filter 3: Blacklist certain asset types (ETFs, warrants, etc.)
+            # Only reject known non-stock types, accept everything else
+            blacklisted_types = ["EXCHANGE_TRADED_FUND", "WARRANT", "RIGHT", "UNIT", "INDEX"]
+            if asset_type in blacklisted_types:
+                rejected_asset_type += 1
                 if len(debug_samples) < 5:
                     debug_samples.append(f"{ticker} (type={asset_type}, mic={mic})")
                 continue

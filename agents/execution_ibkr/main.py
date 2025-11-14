@@ -64,7 +64,8 @@ class IBKRBroker:
         for attempt in range(max_retries):
             try:
                 print(f"[IBKRBroker] Connection attempt {attempt + 1}/{max_retries}...")
-                await self.ib.connectAsync(self.host, self.port, clientId=self.client_id)
+                # Timeout 20s (default is 2s which is too short for IB Gateway startup)
+                await self.ib.connectAsync(self.host, self.port, clientId=self.client_id, timeout=20)
                 self.connected = True
                 print(f"[IBKRBroker] ✓ Connected to IB Gateway at {self.host}:{self.port}")
 
