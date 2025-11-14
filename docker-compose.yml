@@ -136,6 +136,7 @@ services:
       - TWOFA_TIMEOUT_ACTION=restart  # Restart on 2FA timeout (paper trading doesn't need 2FA)
       - VNC_SERVER_PASSWORD=  # No VNC password (optional monitoring)
       - READ_ONLY_API=no  # Enable full API access (not read-only)
+      - TRUSTED_IPS=0.0.0.0  # Allow connections from Docker network (0.0.0.0 = all IPs)
     ports:
       - "127.0.0.1:4002:4002"  # Paper trading port
       - "127.0.0.1:5900:5900"  # VNC (optional, for monitoring)
