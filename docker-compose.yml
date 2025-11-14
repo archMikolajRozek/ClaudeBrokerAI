@@ -133,18 +133,16 @@ services:
       - TRADING_MODE=paper  # paper or live
       - TWS_USERID=${IBKR_USERNAME}  # Your IBKR username
       - TWS_PASSWORD=${IBKR_PASSWORD}  # Your IBKR password
+      - TWS_ACCEPT_INCOMING=accept  # Automatically accept API connections (default: manual)
       - TWOFA_TIMEOUT_ACTION=restart  # Restart on 2FA timeout (paper trading doesn't need 2FA)
       - VNC_SERVER_PASSWORD=  # No VNC password (optional monitoring)
       - READ_ONLY_API=no  # Enable full API access (not read-only)
-      - TRUSTED_IPS=0.0.0.0  # Allow connections from Docker network (0.0.0.0 = all IPs)
     ports:
       - "127.0.0.1:4002:4002"  # Paper trading port
       - "127.0.0.1:5900:5900"  # VNC (optional, for monitoring)
-    volumes:
-      - ./ibkr_config/jts.ini:/home/ibgateway/Jts/jts.ini  # Custom config with TrustedIPs=0.0.0.0
     restart: unless-stopped
-    # Note: IB Gateway API port 4002 is a socket (not HTTP), so healthcheck is removed
-    # Use 'docker logs ib-gateway' to monitor status
+    # Note: socat relay allows Docker network connections to reach IB Gateway (which only trusts 127.0.0.1)
+    # TWS_ACCEPT_INCOMING=accept configures IBC to automatically accept incoming API connections
 
   # Agent: Execution (IBKR) - PRIMARY
   agent-execution:
