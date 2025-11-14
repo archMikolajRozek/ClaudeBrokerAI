@@ -401,6 +401,10 @@ class ExecutionAgentIBKR:
         """Main agent loop"""
         await self.connect_redis()
 
+        # Wait for IB Gateway to fully start (it needs ~20-30s after container start)
+        print("[execution_ibkr] Waiting 30 seconds for IB Gateway to fully initialize...")
+        await asyncio.sleep(30)
+
         # Connect to IBKR
         connected = await self.broker.connect()
         if not connected:
