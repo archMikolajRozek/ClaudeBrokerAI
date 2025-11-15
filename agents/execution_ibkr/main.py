@@ -368,7 +368,8 @@ class ExecutionAgentIBKR:
                 ticker=approved.ticker,
                 side=approved.side,
                 quantity=result["filled_quantity"] if result["status"] != "FAILED" else 0,
-                entry_price=result["executed_price"],
+                entry_price=approved.entry,  # Target price from approved trade
+                executed_price=result["executed_price"],  # Actual fill price from broker
                 executed_at=datetime.now(timezone.utc).isoformat(),
                 stop=approved.stop,
                 take_profit=approved.take_profit,
