@@ -145,7 +145,7 @@ services:
     # TWS_ACCEPT_INCOMING=accept configures IBC to automatically accept incoming API connections
 
   # Agent: Execution (IBKR) - PRIMARY
-  agent-execution:
+  agent-execution-ibkr:
     build:
       context: .
       dockerfile: ./infra/Dockerfile.agent

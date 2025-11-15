@@ -320,8 +320,9 @@ class MarketDataFinazonAgent:
         self.max_tickers = int(os.getenv("MAX_TICKERS", "100"))
         self.min_price = float(os.getenv("MIN_STOCK_PRICE", "5.0"))
 
-        # Exchanges (NYSE, NASDAQ, AMEX, etc.)
-        exchanges_str = os.getenv("EXCHANGES", "XNYS,XNAS")  # XNYS=NYSE, XNAS=NASDAQ
+        # Exchanges - Finazon US Stocks Essential używa IEX (iexg) jako data source
+        # IEX (Investors Exchange) dostarcza dane dla akcji z NYSE/NASDAQ
+        exchanges_str = os.getenv("EXCHANGES", "iexg")  # iexg = IEX Exchange (default dla Finazon)
         self.allowed_exchanges = [e.strip().lower() for e in exchanges_str.split(",")]
 
         # Polling interval (seconds)
