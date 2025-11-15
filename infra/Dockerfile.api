@@ -23,7 +23,7 @@ COPY packages/common /app/packages/common
 # COPY apps/api /app
 
 # Dodaj packages do PYTHONPATH żeby import common działał
-ENV PYTHONPATH=/app/packages:$PYTHONPATH
+ENV PYTHONPATH=/app/packages
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000

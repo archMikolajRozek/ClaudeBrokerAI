@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir \
 COPY packages/common /app/packages/common
 
 # Dodaj packages do PYTHONPATH żeby import common działał
-ENV PYTHONPATH=/app/packages:$PYTHONPATH
+ENV PYTHONPATH=/app/packages
 ENV PYTHONUNBUFFERED=1
 
 # Uruchom agenta z automatyczną instalacją agent-specific requirements
