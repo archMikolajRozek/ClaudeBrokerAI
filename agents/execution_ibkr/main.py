@@ -125,8 +125,12 @@ class IBKRBroker:
             # Create order
             if order_type == "MKT":
                 order = MarketOrder(side, quantity)
+                order.tif = 'GTC'  # Good Till Cancelled - works outside regular hours
+                order.outsideRth = True  # Allow trading outside regular trading hours
             elif order_type == "LMT":
                 order = LimitOrder(side, quantity, entry_price)
+                order.tif = 'GTC'
+                order.outsideRth = True
             else:
                 raise ValueError(f"Unsupported order type: {order_type}")
 
@@ -135,13 +139,28 @@ class IBKRBroker:
             # Place order
             trade = self.ib.placeOrder(contract, order)
 
-            # Wait for fill (with timeout)
-            await asyncio.sleep(1)  # Give order time to process
+            # Wait for fill (with timeout) - increased for paper trading
+            await asyncio.sleep(3)  # Give order time to process (paper trading can be slower)
 
             # Get order status
             status = trade.orderStatus.status
             filled_qty = trade.orderStatus.filled
             avg_fill_price = trade.orderStatus.avgFillPrice
+
+            # Check if order was cancelled
+            if status == 'Cancelled':
+                error_msg = trade.log[-1].message if trade.log else 'Unknown cancellation reason'
+                print(f"[IBKRBroker] ✗ Order cancelled: {error_msg}")
+                return {
+                    "order_id": str(trade.order.orderId),
+                    "executed_price": 0.0,
+                    "status": "CANCELLED",
+                    "filled_quantity": 0,
+                    "commission": 0.0,
+                    "slippage": 0.0,
+                    "perm_id": trade.order.permId,
+                    "error": error_msg
+                }
 
             # Calculate commission (IBKR charges per share, typically $0.0035/share for US stocks)
             commission = filled_qty * 0.0035 if filled_qty > 0 else 0.0
@@ -364,25 +383,30 @@ class ExecutionAgentIBKR:
             )
 
             # Create executed order
+            # Check if order failed or was cancelled
+            is_failed = result["status"] in ["FAILED", "CANCELLED", "Cancelled"]
+
             executed = ExecutedOrder(
                 ticker=approved.ticker,
                 side=approved.side,
-                quantity=result["filled_quantity"] if result["status"] != "FAILED" else 0,
+                quantity=result["filled_quantity"] if not is_failed else 0,
                 entry_price=approved.entry,  # Target price from approved trade
                 executed_price=result["executed_price"],  # Actual fill price from broker
                 executed_at=datetime.now(timezone.utc).isoformat(),
                 stop=approved.stop,
                 take_profit=approved.take_profit,
                 order_id=result["order_id"],
-                status=result["status"],  # FILLED, PARTIAL, FAILED
+                status=result["status"],  # FILLED, PARTIAL, FAILED, CANCELLED
                 commission=result["commission"],
-                slippage=result["slippage"]
+                slippage=result["slippage"],
+                error_message=result.get("error")  # Include error message if present
             )
 
             # Publish to executed_orders stream
             await publish_message(
                 self.redis_client,
                 StreamNames.EXECUTED_ORDERS,
+                "execution_ibkr",  # agent_name
                 executed.model_dump()
             )
 
