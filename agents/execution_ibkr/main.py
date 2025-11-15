@@ -350,8 +350,8 @@ class ExecutionAgentIBKR:
             print(f"[execution_ibkr]   Ticker: {approved.ticker}")
             print(f"[execution_ibkr]   Side: {approved.side}")
             print(f"[execution_ibkr]   Quantity: {approved.quantity}")
-            print(f"[execution_ibkr]   Entry: ${approved.entry_price:.2f}")
-            print(f"[execution_ibkr]   Stop Loss: ${approved.stop_loss:.2f}")
+            print(f"[execution_ibkr]   Entry: ${approved.entry:.2f}")
+            print(f"[execution_ibkr]   Stop Loss: ${approved.stop:.2f}")
             print(f"[execution_ibkr]   Take Profit: ${approved.take_profit:.2f}")
 
             # Execute order through IBKR
@@ -359,7 +359,7 @@ class ExecutionAgentIBKR:
                 ticker=approved.ticker,
                 side=approved.side,
                 quantity=approved.quantity,
-                entry_price=approved.entry_price,
+                entry_price=approved.entry,
                 order_type="MKT"  # Market order for immediate execution
             )
 
@@ -369,8 +369,8 @@ class ExecutionAgentIBKR:
                 side=approved.side,
                 quantity=result["filled_quantity"] if result["status"] != "FAILED" else 0,
                 entry_price=result["executed_price"],
-                entry_time=datetime.now(timezone.utc).isoformat(),
-                stop_loss=approved.stop_loss,
+                executed_at=datetime.now(timezone.utc).isoformat(),
+                stop=approved.stop,
                 take_profit=approved.take_profit,
                 order_id=result["order_id"],
                 status=result["status"],  # FILLED, PARTIAL, FAILED
