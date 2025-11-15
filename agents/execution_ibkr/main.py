@@ -449,11 +449,11 @@ class ExecutionAgentIBKR:
 
                 for stream_name, stream_messages in messages:
                     for message_id, message_data in stream_messages:
-                        # Deserialize
-                        trade_data = deserialize_message(message_data)
+                        # Deserialize StreamMessage
+                        stream_msg = deserialize_message(message_data)
 
-                        # Process trade
-                        await self.process_approved_trade(trade_data)
+                        # Process trade (extract .data dict from StreamMessage)
+                        await self.process_approved_trade(stream_msg.data)
 
                         # Acknowledge message
                         await self.redis_client.xack(
