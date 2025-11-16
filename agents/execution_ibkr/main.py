@@ -139,10 +139,28 @@ class IBKRBroker:
             # Place order
             trade = self.ib.placeOrder(contract, order)
 
-            # Wait for fill (with timeout) - increased for paper trading
-            await asyncio.sleep(3)  # Give order time to process (paper trading can be slower)
+            # Wait for fill - paper trading can take longer, especially outside market hours
+            # Try waiting up to 30 seconds for fill
+            max_wait = 30
+            wait_interval = 2
+            elapsed = 0
 
-            # Get order status
+            while elapsed < max_wait:
+                await asyncio.sleep(wait_interval)
+                elapsed += wait_interval
+
+                status = trade.orderStatus.status
+
+                # If filled or cancelled, break
+                if status in ['Filled', 'Cancelled']:
+                    break
+
+                # If still pending after 10s, log it
+                if elapsed == 10 and status in ['PreSubmitted', 'Submitted']:
+                    print(f"[IBKRBroker] Order still pending after {elapsed}s (status: {status})")
+                    print(f"[IBKRBroker] This is normal outside market hours - order will fill when market opens")
+
+            # Get final order status
             status = trade.orderStatus.status
             filled_qty = trade.orderStatus.filled
             avg_fill_price = trade.orderStatus.avgFillPrice
@@ -160,6 +178,22 @@ class IBKRBroker:
                     "slippage": 0.0,
                     "perm_id": trade.order.permId,
                     "error": error_msg
+                }
+
+            # Check if order is still pending (PreSubmitted/Submitted)
+            # This is normal outside market hours - order will fill when market opens
+            if status in ['PreSubmitted', 'Submitted', 'PendingSubmit']:
+                print(f"[IBKRBroker] ⏳ Order pending (status: {status})")
+                print(f"[IBKRBroker] Order will fill when market opens (regular hours: 9:30am-4pm ET)")
+                # Return with pending status - order is accepted but not filled yet
+                return {
+                    "order_id": str(trade.order.orderId),
+                    "executed_price": entry_price,  # Use entry price as placeholder
+                    "status": status,  # Keep original status
+                    "filled_quantity": 0,  # Not filled yet
+                    "commission": 0.0,
+                    "slippage": 0.0,
+                    "perm_id": trade.order.permId,
                 }
 
             # Calculate commission (IBKR charges per share, typically $0.0035/share for US stocks)
